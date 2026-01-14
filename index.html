@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Air Pollution Checker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #5f8ae0 0%, #000000 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+
+        .input-section {
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .coord-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(195deg, #000000 0%, #5f8ae0 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+            font-size: 18px;
+            display: none;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .results {
+            display: none;
+        }
+
+        .results.active {
+            display: block;
+        }
+
+        .location-header {
+            text-align: center;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .location-name {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .aqi-badge {
+            display: inline-block;
+            padding: 10px 30px;
+            border-radius: 25px;
+            font-size: 18px;
+            font-weight: 700;
+            color: white;
+            margin-top: 10px;
+        }
+
+        .aqi-1 { background: #00e400; }
+        .aqi-2 { background: #ffff00; color: #333; }
+        .aqi-3 { background: #ff7e00; }
+        .aqi-4 { background: #ff0000; }
+        .aqi-5 { background: #8b0000; }
+
+        .pollutants-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .pollutant-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid transparent;
+            transition: transform 0.2s;
+        }
+
+        .pollutant-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .pollutant-name {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .pollutant-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .pollutant-unit {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .error {
+            background: #fee;
+            color: #c00;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .error.active {
+            display: block;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 25px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .pollutants-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    
+    <div class="container">
+        <h1>🌍 Air Pollution Checker</h1>
+        
+        <div class="input-section">
+            <div class="input-group">
+                <label for="city">City Name</label>
+                <input type="text" id="city" placeholder="e.g., London, Tokyo, New York">
+            </div>
+            
+            <div style="text-align: center; margin: 15px 0; color: #999;">OR</div>
+            
+            <div class="input-group">
+                <label>Coordinates</label>
+                <div class="coord-inputs">
+                    <input type="number" id="lat" placeholder="Latitude" step="any">
+                    <input type="number" id="lon" placeholder="Longitude" step="any">
+                </div>
+            </div>
+            
+            <button id="checkBtn" onclick="checkAirQuality()">Check Air Quality</button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div>Loading...</div>
+        </div>
+
+        <div class="error" id="error"></div>
+
+        <div class="results" id="results">
+            <div class="location-header">
+                <div class="location-name" id="locationName"></div>
+                <div class="aqi-badge" id="aqiBadge"></div>
+            </div>
+
+            <div class="pollutants-grid" id="pollutantsGrid"></div>
+        </div>
+    </div>
+
+    <script>
+        //put your API KEY HERE
+        const API_KEY = '';
+
+        const AQI_LABELS = {
+            1: 'Good',
+            2: 'Fair',
+            3: 'Moderate',
+            4: 'Poor',
+            5: 'Very Poor'
+        };
+
+        const POLLUTANT_THRESHOLDS = {
+            so2: [20, 80, 250, 350],
+            no2: [40, 70, 150, 200],
+            pm10: [20, 50, 100, 200],
+            pm2_5: [10, 25, 50, 75],
+            o3: [60, 100, 140, 180],
+            co: [4400, 9400, 12400, 15400]
+        };
+
+        const POLLUTANT_NAMES = {
+            co: 'CO',
+            no2: 'NO₂',
+            o3: 'O₃',
+            so2: 'SO₂',
+            pm2_5: 'PM₂.₅',
+            pm10: 'PM₁₀'
+        };
+
+        function getAQI(pollutant, value) {
+            const thresholds = POLLUTANT_THRESHOLDS[pollutant];
+            if (!thresholds) return 1;
+            
+            for (let i = 0; i < thresholds.length; i++) {
+                if (value <= thresholds[i]) {
+                    return i + 1;
+                }
+            }
+            return 5;
+        }
+
+        function getWorstAQI(components) {
+            let worst = 1;
+            
+            for (const [pollutant, value] of Object.entries(components)) {
+                const aqi = getAQI(pollutant, value);
+                if (aqi > worst) {
+                    worst = aqi;
+                }
+            }
+            
+            return worst;
+        }
+
+        async function getCoordsFromCity(city) {
+            const response = await fetch(
+                `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city)}&limit=1&appid=${API_KEY}`
+            );
+            
+            if (!response.ok) {
+                throw new Error('Failed to fetch location data');
+            }
+            
+            const data = await response.json();
+            
+            if (data.length === 0) {
+                throw new Error('City not found');
+            }
+            
+            return {
+                lat: data[0].lat,
+                lon: data[0].lon,
+                name: data[0].name,
+                country: data[0].country
+            };
+        }
+
+        async function getAirPollution(lat, lon) {
+            const response = await fetch(
+                `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${API_KEY}`
+            );
+            
+            if (!response.ok) {
+                throw new Error('Failed to fetch air pollution data');
+            }
+            
+            return await response.json();
+        }
+
+        async function checkAirQuality() {
+            const city = document.getElementById('city').value.trim();
+            const lat = document.getElementById('lat').value.trim();
+            const lon = document.getElementById('lon').value.trim();
+
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            const error = document.getElementById('error');
+            const checkBtn = document.getElementById('checkBtn');
+
+            error.classList.remove('active');
+            results.classList.remove('active');
+            
+            if (!city && (!lat || !lon)) {
+                error.textContent = 'Please enter either a city name or coordinates';
+                error.classList.add('active');
+                return;
+            }
+
+            loading.classList.add('active');
+            checkBtn.disabled = true;
+
+            try {
+                let coords;
+                let locationName;
+
+                if (city) {
+                    const locationData = await getCoordsFromCity(city);
+                    coords = { lat: locationData.lat, lon: locationData.lon };
+                    locationName = `${locationData.name}, ${locationData.country}`;
+                } else {
+                    coords = { lat: parseFloat(lat), lon: parseFloat(lon) };
+                    locationName = `${lat}°, ${lon}°`;
+                }
+
+                const pollutionData = await getAirPollution(coords.lat, coords.lon);
+                
+                if (!pollutionData.list || pollutionData.list.length === 0) {
+                    throw new Error('No pollution data available');
+                }
+
+                const components = pollutionData.list[0].components;
+                const worstAQI = getWorstAQI(components);
+
+                document.getElementById('locationName').textContent = locationName;
+                
+                const aqiBadge = document.getElementById('aqiBadge');
+                aqiBadge.textContent = `AQI ${worstAQI} - ${AQI_LABELS[worstAQI]}`;
+                aqiBadge.className = `aqi-badge aqi-${worstAQI}`;
+
+                const pollutantsGrid = document.getElementById('pollutantsGrid');
+                pollutantsGrid.innerHTML = '';
+
+                const pollutantOrder = ['pm2_5', 'pm10', 'no2', 'so2', 'o3', 'co'];
+                
+                pollutantOrder.forEach(key => {
+                    const value = components[key];
+                    const card = document.createElement('div');
+                    card.className = 'pollutant-card';
+                    
+                    card.innerHTML = `
+                        <div class="pollutant-name">${POLLUTANT_NAMES[key]}</div>
+                        <div class="pollutant-value">${value.toFixed(1)}</div>
+                        <div class="pollutant-unit">µg/m³</div>
+                    `;
+                    
+                    pollutantsGrid.appendChild(card);
+                });
+
+                results.classList.add('active');
+
+            } catch (err) {
+                error.textContent = err.message;
+                error.classList.add('active');
+            } finally {
+                loading.classList.remove('active');
+                checkBtn.disabled = false;
+            }
+        }
+
+        document.getElementById('city').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') checkAirQuality();
+        });
+
+        document.getElementById('lat').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') checkAirQuality();
+        });
+
+        document.getElementById('lon').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') checkAirQuality();
+        });
+    </script>
+</body>
+</html>
