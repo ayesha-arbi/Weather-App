@@ -66,12 +66,6 @@
             border-color: #667eea;
         }
 
-        .coord-inputs {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
         button {
             width: 100%;
             padding: 14px;
@@ -83,6 +77,7 @@
             font-weight: 600;
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 10px;
         }
 
         button:hover {
@@ -222,19 +217,13 @@
         <h1>🌍 Air Pollution Checker</h1>
         
         <div class="input-section">
-            <div class="input-group">
-                <label for="city">City Name</label>
-                <input type="text" id="city" placeholder="e.g., London, Tokyo, New York">
-            </div>
+            <button id="autoBtn" onclick="detectLocation()">Auto Detect Location</button>
             
             <div style="text-align: center; margin: 15px 0; color: #999;">OR</div>
             
             <div class="input-group">
-                <label>Coordinates</label>
-                <div class="coord-inputs">
-                    <input type="number" id="lat" placeholder="Latitude" step="any">
-                    <input type="number" id="lon" placeholder="Longitude" step="any">
-                </div>
+                <label for="city">City Name</label>
+                <input type="text" id="city" placeholder="e.g., London, Tokyo, New York">
             </div>
             
             <button id="checkBtn" onclick="checkAirQuality()">Check Air Quality</button>
@@ -257,8 +246,7 @@
     </div>
 
     <script>
-        //put your API KEY HERE
-        const API_KEY = '';
+        const API_KEY = '831852fa5684bf36aa15d469cfc8f231';
 
         const AQI_LABELS = {
             1: 'Good',
@@ -266,15 +254,6 @@
             3: 'Moderate',
             4: 'Poor',
             5: 'Very Poor'
-        };
-
-        const POLLUTANT_THRESHOLDS = {
-            so2: [20, 80, 250, 350],
-            no2: [40, 70, 150, 200],
-            pm10: [20, 50, 100, 200],
-            pm2_5: [10, 25, 50, 75],
-            o3: [60, 100, 140, 180],
-            co: [4400, 9400, 12400, 15400]
         };
 
         const POLLUTANT_NAMES = {
@@ -286,29 +265,73 @@
             pm10: 'PM₁₀'
         };
 
-        function getAQI(pollutant, value) {
-            const thresholds = POLLUTANT_THRESHOLDS[pollutant];
-            if (!thresholds) return 1;
-            
-            for (let i = 0; i < thresholds.length; i++) {
-                if (value <= thresholds[i]) {
-                    return i + 1;
-                }
-            }
-            return 5;
-        }
+        async function detectLocation() {
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            const error = document.getElementById('error');
+            const autoBtn = document.getElementById('autoBtn');
 
-        function getWorstAQI(components) {
-            let worst = 1;
-            
-            for (const [pollutant, value] of Object.entries(components)) {
-                const aqi = getAQI(pollutant, value);
-                if (aqi > worst) {
-                    worst = aqi;
+            error.classList.remove('active');
+            results.classList.remove('active');
+            loading.classList.add('active');
+            autoBtn.disabled = true;
+
+            try {
+                const response = await fetch('http://ip-api.com/json/');
+                
+                if (!response.ok) {
+                    throw new Error('Failed to detect location');
                 }
+                
+                const data = await response.json();
+                
+                if (data.status === 'fail') {
+                    throw new Error('Could not detect your location');
+                }
+
+                const pollutionData = await getAirPollution(data.lat, data.lon);
+                
+                if (!pollutionData.list || pollutionData.list.length === 0) {
+                    throw new Error('No pollution data available');
+                }
+
+                const aqi = pollutionData.list[0].main.aqi;
+                const components = pollutionData.list[0].components;
+
+                document.getElementById('locationName').textContent = `${data.city}, ${data.country}`;
+                
+                const aqiBadge = document.getElementById('aqiBadge');
+                aqiBadge.textContent = `Index ${aqi} - ${AQI_LABELS[aqi]}`;
+                aqiBadge.className = `aqi-badge aqi-${aqi}`;
+
+                const pollutantsGrid = document.getElementById('pollutantsGrid');
+                pollutantsGrid.innerHTML = '';
+
+                const pollutantOrder = ['pm2_5', 'pm10', 'no2', 'so2', 'o3', 'co'];
+                
+                pollutantOrder.forEach(key => {
+                    const value = components[key];
+                    const card = document.createElement('div');
+                    card.className = 'pollutant-card';
+                    
+                    card.innerHTML = `
+                        <div class="pollutant-name">${POLLUTANT_NAMES[key]}</div>
+                        <div class="pollutant-value">${value.toFixed(1)}</div>
+                        <div class="pollutant-unit">µg/m³</div>
+                    `;
+                    
+                    pollutantsGrid.appendChild(card);
+                });
+
+                results.classList.add('active');
+
+            } catch (err) {
+                error.textContent = err.message;
+                error.classList.add('active');
+            } finally {
+                loading.classList.remove('active');
+                autoBtn.disabled = false;
             }
-            
-            return worst;
         }
 
         async function getCoordsFromCity(city) {
@@ -348,8 +371,6 @@
 
         async function checkAirQuality() {
             const city = document.getElementById('city').value.trim();
-            const lat = document.getElementById('lat').value.trim();
-            const lon = document.getElementById('lon').value.trim();
 
             const loading = document.getElementById('loading');
             const results = document.getElementById('results');
@@ -359,8 +380,8 @@
             error.classList.remove('active');
             results.classList.remove('active');
             
-            if (!city && (!lat || !lon)) {
-                error.textContent = 'Please enter either a city name or coordinates';
+            if (!city) {
+                error.textContent = 'Please enter a city name';
                 error.classList.add('active');
                 return;
             }
@@ -369,32 +390,22 @@
             checkBtn.disabled = true;
 
             try {
-                let coords;
-                let locationName;
+                const locationData = await getCoordsFromCity(city);
 
-                if (city) {
-                    const locationData = await getCoordsFromCity(city);
-                    coords = { lat: locationData.lat, lon: locationData.lon };
-                    locationName = `${locationData.name}, ${locationData.country}`;
-                } else {
-                    coords = { lat: parseFloat(lat), lon: parseFloat(lon) };
-                    locationName = `${lat}°, ${lon}°`;
-                }
-
-                const pollutionData = await getAirPollution(coords.lat, coords.lon);
+                const pollutionData = await getAirPollution(locationData.lat, locationData.lon);
                 
                 if (!pollutionData.list || pollutionData.list.length === 0) {
                     throw new Error('No pollution data available');
                 }
 
+                const aqi = pollutionData.list[0].main.aqi;
                 const components = pollutionData.list[0].components;
-                const worstAQI = getWorstAQI(components);
 
-                document.getElementById('locationName').textContent = locationName;
+                document.getElementById('locationName').textContent = `${locationData.name}, ${locationData.country}`;
                 
                 const aqiBadge = document.getElementById('aqiBadge');
-                aqiBadge.textContent = `AQI ${worstAQI} - ${AQI_LABELS[worstAQI]}`;
-                aqiBadge.className = `aqi-badge aqi-${worstAQI}`;
+                aqiBadge.textContent = `Index ${aqi} - ${AQI_LABELS[aqi]}`;
+                aqiBadge.className = `aqi-badge aqi-${aqi}`;
 
                 const pollutantsGrid = document.getElementById('pollutantsGrid');
                 pollutantsGrid.innerHTML = '';
@@ -427,14 +438,6 @@
         }
 
         document.getElementById('city').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') checkAirQuality();
-        });
-
-        document.getElementById('lat').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') checkAirQuality();
-        });
-
-        document.getElementById('lon').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') checkAirQuality();
         });
     </script>
